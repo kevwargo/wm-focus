@@ -44,6 +44,10 @@ CONFIG = {
         "class": "krusader",
         "command": "krusader",
     },
+    "dolphin": {
+        "class": "dolphin",
+        "command": "dolphin",
+    },
 }
 
 
