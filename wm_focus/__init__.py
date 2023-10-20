@@ -1,5 +1,6 @@
-import sys
+import logging
 from argparse import ArgumentParser
+from pathlib import Path
 from subprocess import Popen
 from subprocess import run as run_cmd
 
@@ -51,6 +52,15 @@ CONFIG = {
 }
 
 
+logging.basicConfig(
+    filename=Path("~/.wm-focus.log").expanduser(),
+    filemode="a",
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+
 def run():
     args = parse_args()
     if alias := args.alias:
@@ -63,15 +73,27 @@ def run():
     else:
         raise ValueError
 
-    focus_result = run_cmd(["xdotool", "search", "--desktop", "0", *search_args, "windowactivate"])
-    if focus_result.returncode == 0:
-        return
-
-    if cmd:
+    if not focus(search_args) and cmd:
         if auto_execute:
             Popen(cmd, shell=True)
         else:
             run_cmd(["qdbus", "org.kde.krunner", "/App", "org.kde.krunner.App.query", cmd])
+
+
+def focus(args) -> bool:
+    cmd = ["xdotool", "search", "--desktop", "0", *args, "windowactivate"]
+
+    while True:
+        result = run_cmd(cmd, capture_output=True)
+        if result.returncode == 0:
+            return True
+        if result.returncode == 1 and not (result.stdout or result.stderr):
+            return False
+
+        if result.stderr.decode().startswith("X Error of failed request:  BadWindow"):
+            logging.info(f"Retrying {cmd} ...")
+        else:
+            result.check_returncode()
 
 
 def parse_args():
